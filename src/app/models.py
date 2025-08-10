@@ -14,8 +14,9 @@ organization_activity = Table(
 class Phone(Base):
     __tablename__ = "phones"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    number: Mapped[str] = mapped_column(String, unique=True, index=True)
-    organization = mapped_column(ForeignKey('organizations.id'))
+    number: Mapped[str] = mapped_column(String, index=True, unique=True)
+    organization_id = mapped_column(ForeignKey('organizations.id'))
+    organization = relationship("Organization", back_populates="phones")
 
 
 class Activity(Base):
