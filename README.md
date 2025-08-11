@@ -12,7 +12,7 @@
 ### 1. Клонируйте репозиторий
 
 ```bash
-git https://github.com/Wiltort/business-point.git
+git clone https://github.com/Wiltort/business-point.git
 cd business-point
 ```
 ### 2. Настройте переменные окружения
