@@ -17,13 +17,14 @@ cd business-point
 ```
 ### 2. Настройте переменные окружения
 Создайте файл .env в корне проекта и добавьте:
+```bash
     POSTGRES_USER=<user>
     POSTGRES_PASSWORD=<password>
     POSTGRES_DB=<dbname>
     POSTGRES_HOST=<host> # для докера - postgres
     # SYNC_DATABASE_URL=<> для разработки (создания новых миграции)
     API_KEY=supersecretkey
-
+```
 ### 3. Запустите приложение через Docker
 ```bash
 docker-compose up --build
