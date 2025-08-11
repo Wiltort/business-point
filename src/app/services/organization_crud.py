@@ -1,9 +1,11 @@
 import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from .phone_crud import PhoneService
 from .activity_crud import ActivityService
 from .. import models, schemas
+import math
 
 
 class OrganizationService:
@@ -83,7 +85,13 @@ class OrganizationService:
             list[models.Organization]: List of Organization models.
         """
         result = await self.db.execute(
-            select(models.Organization).offset(skip).limit(limit)
+            select(models.Organization)
+            .options(
+                selectinload(models.Organization.phones),
+                selectinload(models.Organization.activities),
+                selectinload(models.Organization.building),
+            )
+            .offset(skip).limit(limit)
         )
         return result.scalars().all()
 
@@ -200,5 +208,47 @@ class OrganizationService:
             select(models.Organization).where(
                 models.Organization.name.ilike(f"%{name}%")
             )
+        )
+        return result.scalars().all()
+
+    async def get_by_radius(
+            self,
+            area: schemas.GeoSearchRadius
+    ) -> list[models.Organization]:
+        """
+        Retrieve organizations located in buildings within a given radius from a point.
+        Args:
+            latitude (float): Latitude of the center point.
+            longitude (float): Longitude of the center point.
+            radius (float): Search radius.
+            unit (str, optional): 'km' for kilometers or 'mi' for miles. Defaults to 'km'.
+        Returns:
+            list[models.Organization]: List of organizations in buildings within the radius.
+        """
+
+        earth_radius = 6371_000
+        radius_in_m = area.unit.to_meters(area.radius)
+
+        def haversine(lat1, lon1, lat2, lon2):
+            # Convert decimal degrees to radians
+            lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+            a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+            c = 2 * math.asin(math.sqrt(a))
+            return earth_radius * c
+
+        result = await self.db.execute(select(models.Building))
+        buildings = result.scalars().all()
+
+        nearby_building_ids = [
+            b.id for b in buildings
+            if haversine(area.latitude, area.longitude, b.latitude, b.longitude) <= radius_in_m
+        ]
+        if not nearby_building_ids:
+            return []
+        # Get organizations in these buildings
+        result = await self.db.execute(
+            select(models.Organization).where(models.Organization.building_id.in_(nearby_building_ids))
         )
         return result.scalars().all()

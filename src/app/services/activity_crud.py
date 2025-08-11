@@ -20,6 +20,27 @@ class ActivityService:
         """
         self.db = db
 
+    async def is_level_less_than_3(self, id: int) -> int:
+        level = 1
+        parent = await self.db.execute(
+            select(models.Activity)
+            .where(models.Activity.id == id)
+        )
+        parent = parent.scalar_one_or_none()
+        if not parent:
+            raise ValueError(f'Activity ID={id} not found in database')
+
+        while level < 3 and parent is not None:
+            parent = await self.db.execute(
+                select(models.Activity)
+                .where(models.Activity.id == parent.parent_id)
+            )
+            parent = parent.scalar_one_or_none()
+            level += 1
+        if level < 3:
+            return True
+        return False
+
     async def create(self, activity: schemas.ActivityCreate) -> models.Activity:
         """
         Create a new activity.
@@ -147,7 +168,7 @@ class ActivityService:
             .join(tree, prnt.id == tree.c.id)
         )
         cte_query = tree.union_all(recursive_part)
-        res = await self.db.execute(cte_query.c.id)
+        res = await self.db.execute(select(cte_query.c.id))
         return res.unique().scalars().all()
 
     async def get_activity_tree(self, parent_id: int | None = None) -> list[schemas.ActivityTree]:
@@ -174,8 +195,8 @@ class ActivityService:
             .join(tree, prnt.id == tree.c.id)
         )
         cte_query = tree.union_all(recursive_part)
-        res = await self.db.execute(cte_query)
-        activities = res.unique().scalars().all()
+        res = await self.db.execute(select(cte_query))
+        activities = res.unique().all()
         id_to_tree: dict[int, schemas.ActivityTree] = {}
         children_map: dict[int | None, list[schemas.ActivityTree]] = {}
 

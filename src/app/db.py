@@ -7,10 +7,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
-if not SQLALCHEMY_DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in environment variables or .env file")
-SYNC_DATABASE_URL = os.getenv("SYNC_DATABASE_URL")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "postgres")
+POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "bp_db")
+SQLALCHEMY_DATABASE_URL = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:5432/{POSTGRES_DB}"
 
 
 engine = create_async_engine(SQLALCHEMY_DATABASE_URL, echo=True)
@@ -32,4 +33,4 @@ async def get_db():
         yield session
 
 
-from models import *
+from app.models import *

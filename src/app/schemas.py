@@ -1,5 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field, field_validator
+from enum import Enum
 
 
 class PhoneBase(BaseModel):
@@ -17,6 +18,12 @@ class Phone(PhoneBase):
     class Config:
         from_attributes = True
 
+class PhoneRead(PhoneBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
 
 class ActivityBase(BaseModel):
     name: str = Field(..., example="Молочная продукция")
@@ -27,9 +34,30 @@ class ActivityCreate(ActivityBase):
     pass
 
 
+class ActivityUpdate(BaseModel):
+    name: str | None = Field(None, example="Молочная продукция")
+    parent_id: int | None = Field(None, example=1)
+
+
 class Activity(ActivityBase):
     id: int
     children: List['Activity'] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class ActivityRead(BaseModel):
+    id: int
+    name: str
+    parent_id: int | None
+
+    class Config:
+        from_attributes = True
+
+
+class ActivityTreeRead(ActivityRead):
+    children: List["ActivityTreeRead"] = []
 
     class Config:
         from_attributes = True
@@ -82,11 +110,12 @@ class OrganizationUpdate(BaseModel):
         return v
 
 
-class Organization(OrganizationBase):
+class Organization(BaseModel):
     id: int
-    phones: List[Phone] = Field(default_factory=list)
-    activities: List[Activity] = Field(default_factory=list)
-    building: Building
+    name: str
+    phones: List[PhoneRead] = Field(default_factory=list)
+    activities: List[ActivityRead] = Field(default_factory=list)
+    building: Building | None = None
 
     class Config:
         from_attributes = True
@@ -108,12 +137,48 @@ class GeoSearchArea(BaseModel):
     max_lon: float = Field(..., example=37.6273)
 
 
+class Unit(str, Enum):
+    meter = "m"
+    kilometer = "km"
+    mile = "mi"
+
+    def to_meters(self, value: float) -> float:
+        if self == Unit.meter:
+            return value
+        elif self == Unit.kilometer:
+            return value * 1000
+        elif self == Unit.mile:
+            return value * 1609.344
+        else:
+            raise ValueError(f"Unknown unit: {self}")
+
+
 class GeoSearchRadius(BaseModel):
     latitude: float = Field(..., example=55.7558)
     longitude: float = Field(..., example=37.6173)
-    radius: float = Field(..., example=1000)  # в метрах
+    radius: float = Field(..., example=1)
+    unit: Unit = Field(..., example="km")
+
+    @field_validator("latitude")
+    def latitude_range(cls, v):
+        if not -90 <= v <= 90:
+            raise ValueError("Latitude must be between -90 and 90")
+        return v
+
+    @field_validator("longitude")
+    def longitude_range(cls, v):
+        if not -180 <= v <= 180:
+            raise ValueError("Longitude must be between -180 and 180")
+        return v
+
+    @field_validator("radius")
+    def radius_positive(cls, v):
+        if v <= 0:
+            raise ValueError("Radius must be positive")
+        return v
 
 
 Phone.model_rebuild()
 Activity.model_rebuild()
 ActivityTree.model_rebuild()
+ActivityTreeRead.model_rebuild()

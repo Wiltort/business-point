@@ -1,15 +1,11 @@
-from fastapi import FastAPI, Depends
-from .db import get_db
+from fastapi import FastAPI
+from .routes import router
 
 
-app = FastAPI()
+app = FastAPI(
+    title="Organization API",
+    description="API для управления организациями, телефонами и активностями",
+    version="1.0.0",
+)
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None, db: Session = Depends(get_db)):
-    return {"item_id": item_id, "q": q}
-
+app.include_router(router)
